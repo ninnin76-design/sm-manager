@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import firebase from "firebase/compat/app";
 import { getFirestore } from "firebase/firestore";
 
 // 사용자가 제공한 Firebase 설정
@@ -13,7 +13,9 @@ const firebaseConfig = {
 };
 
 // Firebase 초기화
-const app = initializeApp(firebaseConfig);
+// Using compat/app avoids potential module resolution issues with "firebase/app" in certain environments.
+firebase.initializeApp(firebaseConfig);
 
 // 데이터베이스(Firestore) 기능을 앱 전체에서 쓸 수 있도록 내보내기
-export const db = getFirestore(app);
+// getFirestore() without arguments uses the default app initialized above.
+export const db = getFirestore();

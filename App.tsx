@@ -359,7 +359,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 py-6 md:py-8">
         
         {viewMode === 'list' && (
             <BoardList 
@@ -455,10 +455,10 @@ const App: React.FC = () => {
 
                 <div className="h-24"></div>
 
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md border border-slate-200 shadow-xl rounded-full px-4 py-2 flex items-center gap-2 z-40 animate-in slide-in-from-bottom-8 duration-500">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md border border-slate-200 shadow-xl rounded-full px-4 py-2 flex items-center gap-2 z-40 animate-in slide-in-from-bottom-8 duration-500 w-max max-w-[90%] overflow-x-auto hide-scrollbar">
                     <button
                         onClick={handleReset}
-                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all flex-shrink-0"
                         title="초기화"
                     >
                         <RotateCcw size={18} />
@@ -467,29 +467,30 @@ const App: React.FC = () => {
                     {currentId && (
                          <button
                             onClick={handleDeleteCurrent}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all flex-shrink-0"
                             title="삭제"
                         >
                             <Trash2 size={18} />
                         </button>
                     )}
                     
-                    <div className="w-px h-6 bg-slate-300 mx-2"></div>
+                    <div className="w-px h-6 bg-slate-300 mx-2 flex-shrink-0"></div>
 
                     <button
                         onClick={handleGenerateReport}
                         disabled={members.length === 0}
-                        className="flex items-center gap-2 px-3 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded-full font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-3 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded-full font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
                         <Sparkles size={16} />
                         <span className="hidden sm:inline">AI 브리핑</span>
+                        <span className="sm:hidden">AI</span>
                     </button>
 
                     <button
                         onClick={handleSave}
                         disabled={isSaved || members.length === 0}
                         className={`
-                            flex items-center gap-2 px-5 py-2 rounded-full font-bold shadow-sm transition-all text-sm
+                            flex items-center gap-2 px-5 py-2 rounded-full font-bold shadow-sm transition-all text-sm whitespace-nowrap
                             ${isSaved 
                                 ? 'bg-green-500 text-white cursor-default' 
                                 : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 active:scale-95 disabled:bg-slate-300 disabled:scale-100 disabled:cursor-not-allowed'}
