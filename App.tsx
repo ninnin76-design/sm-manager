@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Save, List, Sparkles, RotateCcw, ArrowLeft, Trash2, Users, Settings, RefreshCw } from 'lucide-react';
+import { Calendar, Save, List, Sparkles, RotateCcw, ArrowLeft, Users, RefreshCw } from 'lucide-react';
 import { INITIAL_RECORD } from './constants';
 import { TaskRecord, ScheduleEntry, Person } from './types';
 import { PersonRow } from './components/PersonRow';
@@ -8,7 +7,6 @@ import { SummaryModal } from './components/SummaryModal';
 import { BoardList } from './components/BoardList';
 import { MemberManager } from './components/MemberManager';
 import { AdminLoginModal } from './components/AdminLoginModal';
-// Fix: Removed incorrect import 'deleteScheduleEntry'
 import { saveScheduleEntry, loadScheduleEntry, deleteScheduleByKey, getScheduleSummaries, ScheduleSummary, getMembers, saveMembers, deleteAllSchedules, resetApplication } from './services/storageService';
 import { generateDailyReport } from './services/geminiService';
 
@@ -17,7 +15,7 @@ type ViewMode = 'list' | 'editor' | 'members';
 const App: React.FC = () => {
   // --- State ---
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [isLoading, setIsLoading] = useState(false); // New Loading State
+  const [isLoading, setIsLoading] = useState(false);
   
   // Settings State
   const [members, setMembers] = useState<Person[]>([]);
@@ -32,6 +30,9 @@ const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [title, setTitle] = useState<string>('');
   const [records, setRecords] = useState<Record<string, TaskRecord>>({});
+  
+  // New: Metadata Lock State (날짜/제목 수정 잠금 여부)
+  const [isMetadataLocked, setIsMetadataLocked] = useState(true);
   
   // UI States
   const [isSaved, setIsSaved] = useState(false);
@@ -131,7 +132,7 @@ const App: React.FC = () => {
 
   const handleSave = async () => {
     setIsLoading(true);
-    // ID Format: Date + Underscore + Timestamp Sequence (e.g., 2024-05-20_1716182922123)
+    // ID Format: Date + Underscore + Timestamp Sequence
     const idToSave = currentId || `${currentDate}_${Date.now()}`;
     
     // Clean up records: only save records for current members
@@ -154,16 +155,6 @@ const App: React.FC = () => {
     setIsSaved(true);
     setIsLoading(false);
     setViewMode('list');
-  };
-
-  const handleDeleteCurrent = async () => {
-      if (!currentId) return;
-      if (window.confirm('정말 이 기록을 삭제하시겠습니까?')) {
-          setIsLoading(true);
-          await deleteScheduleByKey(currentId);
-          setIsLoading(false);
-          setViewMode('list');
-      }
   };
 
   const handleGenerateReport = async () => {
@@ -189,6 +180,7 @@ const App: React.FC = () => {
     }
   }
 
+  // 일반 열람 (수정 불가)
   const handleSelectEntryFromList = async (id: string) => {
       setIsLoading(true);
       const entry = await loadScheduleEntry(id);
@@ -200,22 +192,39 @@ const App: React.FC = () => {
           setTitle(entry.title || '');
           setRecords(entry.records);
           setIsSaved(true);
+          setIsMetadataLocked(true); // 잠금 모드 활성화
           setViewMode('editor');
       }
+  };
+
+  // 관리자 수정 (수정 가능)
+  const handleEditEntryFromList = async (id: string) => {
+    setIsLoading(true);
+    const entry = await loadScheduleEntry(id);
+    setIsLoading(false);
+    
+    if (entry) {
+        setCurrentId(entry.id);
+        setCurrentDate(entry.date);
+        setTitle(entry.title || '');
+        setRecords(entry.records);
+        setIsSaved(true);
+        setIsMetadataLocked(false); // 잠금 모드 해제
+        setViewMode('editor');
+    }
   };
 
   const handleDeleteEntryFromList = async (storageKey: string) => {
       setIsLoading(true);
       await deleteScheduleByKey(storageKey);
-      await loadSummaries(); // Refresh list
+      await loadSummaries(); 
       setIsLoading(false);
   };
 
   const handleDeleteEntriesFromList = async (storageKeys: string[]) => {
       setIsLoading(true);
-      // Execute all deletes
       await Promise.all(storageKeys.map(key => deleteScheduleByKey(key)));
-      await loadSummaries(); // Refresh list
+      await loadSummaries();
       setIsLoading(false);
   };
 
@@ -231,10 +240,9 @@ const App: React.FC = () => {
       setRecords(initialRecords);
       
       setIsSaved(false);
+      setIsMetadataLocked(false); // 새 작성은 항상 수정 가능
       setViewMode('editor');
   };
-
-  // --- Render Helpers ---
 
   const renderGroups = () => {
     const groups: string[] = Array.from(new Set(members.map(m => m.group)));
@@ -303,7 +311,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20 bg-slate-50">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
             <div 
@@ -318,26 +325,16 @@ const App: React.FC = () => {
             
             <div className="flex items-center gap-3">
                 {viewMode === 'list' && (
-                    <>
-                        <button
-                            onClick={() => loadSummaries()}
-                            className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
-                            title="새로고침"
-                        >
-                            <RefreshCw size={20} />
-                        </button>
-                        <button
-                            onClick={() => handleVerifyAdmin(() => setViewMode('members'))}
-                            className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
-                            title="설정 및 팀원 관리"
-                        >
-                            <Settings size={20} />
-                            <span className="hidden sm:inline font-medium">설정</span>
-                        </button>
-                    </>
+                    <button
+                        onClick={() => loadSummaries()}
+                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
+                        title="새로고침"
+                    >
+                        <RefreshCw size={20} />
+                    </button>
                 )}
 
-                {viewMode === 'editor' ? (
+                {viewMode === 'editor' && (
                      <button
                         onClick={() => setViewMode('list')}
                         className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
@@ -345,26 +342,18 @@ const App: React.FC = () => {
                         <List size={20} />
                         <span className="hidden sm:inline font-medium">목록으로</span>
                      </button>
-                ) : viewMode === 'list' ? (
-                    <button
-                        onClick={handleCreateNew}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md transition-colors font-medium"
-                    >
-                        <Sparkles size={18} />
-                        <span className="hidden sm:inline">오늘 기록하기</span>
-                    </button>
-                ) : null}
+                )}
             </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-6 md:py-8">
         
         {viewMode === 'list' && (
             <BoardList 
                 summaries={summaries}
                 onSelectEntry={handleSelectEntryFromList}
+                onEditEntry={handleEditEntryFromList}
                 onDeleteEntry={handleDeleteEntryFromList}
                 onDeleteEntries={handleDeleteEntriesFromList}
                 onCreateNew={handleCreateNew}
@@ -404,7 +393,8 @@ const App: React.FC = () => {
                                     type="date"
                                     value={currentDate}
                                     onChange={handleDateChange}
-                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                    disabled={!!currentId && isMetadataLocked}
+                                    className={`w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm font-medium outline-none transition-colors ${!!currentId && isMetadataLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50 text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500'}`}
                                 />
                             </div>
                         </div>
@@ -416,7 +406,8 @@ const App: React.FC = () => {
                                 value={title}
                                 onChange={handleTitleChange}
                                 placeholder="예:체크사항,기록사항 등"
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none placeholder-slate-400"
+                                disabled={!!currentId && isMetadataLocked}
+                                className={`w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none placeholder-slate-400 transition-colors ${!!currentId && isMetadataLocked ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50 text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500'}`}
                             />
                         </div>
                     </div>
@@ -463,16 +454,6 @@ const App: React.FC = () => {
                     >
                         <RotateCcw size={18} />
                     </button>
-
-                    {currentId && (
-                         <button
-                            onClick={handleDeleteCurrent}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all flex-shrink-0"
-                            title="삭제"
-                        >
-                            <Trash2 size={18} />
-                        </button>
-                    )}
                     
                     <div className="w-px h-6 bg-slate-300 mx-2 flex-shrink-0"></div>
 

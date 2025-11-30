@@ -1,11 +1,11 @@
-
 import React, { useState } from 'react';
 import { ScheduleSummary } from '../services/storageService';
-import { Trash2, Calendar, CheckCircle2, Circle, Users, Edit2, X, CheckSquare, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Trash2, Calendar, CheckCircle2, Circle, Users, Edit2, X, CheckSquare, AlertTriangle } from 'lucide-react';
 
 interface BoardListProps {
   summaries: ScheduleSummary[];
   onSelectEntry: (id: string) => void;
+  onEditEntry: (id: string) => void;
   onDeleteEntry: (storageKey: string) => void;
   onDeleteEntries: (storageKeys: string[]) => void;
   onCreateNew: () => void;
@@ -13,7 +13,7 @@ interface BoardListProps {
   onVerifyAdmin: (action: () => void) => void;
 }
 
-export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, onDeleteEntry, onDeleteEntries, onCreateNew, onManageMembers, onVerifyAdmin }) => {
+export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, onEditEntry, onDeleteEntry, onDeleteEntries, onCreateNew, onManageMembers, onVerifyAdmin }) => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   
@@ -39,6 +39,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
     setSelectedKeys(newSelected);
   };
 
+  // toggleSelectionMode removed from UI but kept in logic if needed later (dead code for now)
   const toggleSelectionMode = () => {
     setIsSelectionMode(!isSelectionMode);
     setSelectedKeys(new Set());
@@ -59,16 +60,20 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
 
   const confirmBulkDelete = () => {
     onDeleteEntries(Array.from(selectedKeys));
-    // User requested to stay in selection mode (List Edit Page) after deletion
     setSelectedKeys(new Set());
     setIsBulkDeleteConfirmOpen(false);
   };
 
   const handleDeleteClick = (e: React.MouseEvent, summary: ScheduleSummary) => {
-    // Stop propagation to prevent row click
     e.stopPropagation(); 
     e.preventDefault();
     onVerifyAdmin(() => setDeleteTarget(summary));
+  };
+
+  const handleEditClick = (e: React.MouseEvent, summary: ScheduleSummary) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onVerifyAdmin(() => onEditEntry(summary.id));
   };
 
   const confirmSingleDelete = () => {
@@ -81,7 +86,6 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
   // Helper to format YYYY-MM-DD to YYMMDD
   const formatDateToYYMMDD = (dateStr: string) => {
     if (!dateStr) return '';
-    // Removes hyphens and takes the last 6 characters (YYMMDD) assuming YYYY-MM-DD input
     return dateStr.replace(/-/g, '').slice(2);
   };
 
@@ -133,42 +137,22 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
             <p className="text-slate-500 text-sm mt-1">목록 내용을 확인하고 체크하세요!!</p>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-            {isSelectionMode ? (
-               <button 
-                  onClick={toggleSelectionMode}
-                  className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors font-medium flex items-center justify-center gap-2 whitespace-nowrap"
-              >
-                  <X size={18} />
-                  <span>취소</span>
-              </button>
-            ) : (
-              <button 
-                  onClick={() => onVerifyAdmin(toggleSelectionMode)}
-                  className="bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
-              >
-                  <Edit2 size={16} />
-                  <span>편집</span>
-              </button>
-            )}
+            {/* Edited: "Edit" button removed as requested */}
             
-            {!isSelectionMode && (
-              <>
-                <button 
-                    onClick={() => onVerifyAdmin(onManageMembers)}
-                    className="flex-shrink-0 bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
-                >
-                    <Users size={16} />
-                    <span>팀원 관리</span>
-                </button>
-                <button 
-                    onClick={onCreateNew}
-                    className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
-                >
-                    <Calendar size={16} />
-                    <span>작성</span>
-                </button>
-              </>
-            )}
+            <button 
+                onClick={() => onVerifyAdmin(onManageMembers)}
+                className="flex-shrink-0 bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
+            >
+                <Users size={16} />
+                <span>SM 관리</span>
+            </button>
+            <button 
+                onClick={onCreateNew}
+                className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
+            >
+                <Calendar size={16} />
+                <span>작성</span>
+            </button>
         </div>
       </div>
 
@@ -224,13 +208,22 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
                     </div>
                     
                     {!isSelectionMode && (
+                      <div className="flex items-center -mr-2 relative z-10">
+                        <button 
+                            type="button"
+                            onClick={(e) => handleEditClick(e, summary)}
+                            className="p-2 text-slate-400 hover:text-blue-600 active:bg-blue-50 rounded-full transition-colors"
+                        >
+                            <Edit2 size={20} />
+                        </button>
                         <button 
                             type="button"
                             onClick={(e) => handleDeleteClick(e, summary)}
-                            className="p-2 -mr-2 text-slate-400 hover:text-red-600 active:bg-red-50 rounded-full transition-colors z-10"
+                            className="p-2 text-slate-400 hover:text-red-600 active:bg-red-50 rounded-full transition-colors"
                         >
                             <Trash2 size={20} />
                         </button>
+                      </div>
                     )}
                 </div>
 
@@ -363,7 +356,15 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
                         className="px-6 py-4 align-top text-right"
                         onClick={(e) => e.stopPropagation()} 
                       >
-                        <div className="flex items-center justify-end gap-3 h-full relative z-20">
+                        <div className="flex items-center justify-end gap-2 h-full relative z-20">
+                          <button 
+                              type="button"
+                              onClick={(e) => handleEditClick(e, summary)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 active:bg-blue-100 cursor-pointer relative z-30"
+                              title="수정"
+                          >
+                              <Edit2 size={20} className="pointer-events-none" />
+                          </button>
                           <button 
                               type="button"
                               onClick={(e) => handleDeleteClick(e, summary)}
