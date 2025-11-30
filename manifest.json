@@ -1,5 +1,5 @@
 {
-  "short_name": "SM관리 매니저",
+  "short_name": "SM관리",
   "name": "SM관리 매니저",
   "icons": [
     {
@@ -13,9 +13,9 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#ffffff",
   "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "orientation": "portrait"
 }
