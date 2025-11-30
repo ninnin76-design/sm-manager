@@ -1,169 +1,107 @@
+
 import { TaskRecord, ScheduleEntry, Person } from '../types';
 import { TEAM_MEMBERS as DEFAULT_TEAM_MEMBERS } from '../constants';
+import { db } from '../firebase';
+import { collection, doc, getDoc, setDoc, deleteDoc, getDocs, query, orderBy, writeBatch } from "firebase/firestore";
 
-const LEGACY_KEY_PREFIX = 'schedule_manager_data_';
-const ENTRY_KEY_PREFIX = 'schedule_manager_entry_';
-const MEMBERS_KEY = 'schedule_manager_members';
+const SCHEDULES_COLLECTION = 'schedules';
+const SETTINGS_COLLECTION = 'settings';
+const MEMBERS_DOC_ID = 'team_members';
 
 // --- Member Management ---
 
-export const getMembers = (): Person[] => {
+export const getMembers = async (): Promise<Person[]> => {
   try {
-    const data = localStorage.getItem(MEMBERS_KEY);
-    if (data) {
-      return JSON.parse(data);
+    const docRef = doc(db, SETTINGS_COLLECTION, MEMBERS_DOC_ID);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      return docSnap.data().members as Person[];
+    } else {
+      // Initialize with defaults if not exists
+      await setDoc(docRef, { members: DEFAULT_TEAM_MEMBERS });
+      return DEFAULT_TEAM_MEMBERS;
     }
-    return DEFAULT_TEAM_MEMBERS;
   } catch (error) {
-    console.error("Failed to load members:", error);
+    console.error("Failed to load members from DB:", error);
     return DEFAULT_TEAM_MEMBERS;
   }
 };
 
-export const saveMembers = (members: Person[]): void => {
+export const saveMembers = async (members: Person[]): Promise<void> => {
   try {
-    localStorage.setItem(MEMBERS_KEY, JSON.stringify(members));
+    const docRef = doc(db, SETTINGS_COLLECTION, MEMBERS_DOC_ID);
+    await setDoc(docRef, { members: members }, { merge: true });
   } catch (error) {
-    console.error("Failed to save members:", error);
+    console.error("Failed to save members to DB:", error);
   }
 };
 
 // --- Schedule Entry Management ---
 
-export const saveScheduleEntry = (entry: ScheduleEntry): void => {
+export const saveScheduleEntry = async (entry: ScheduleEntry): Promise<void> => {
   try {
-    // Always save with the new prefix structure
-    const key = `${ENTRY_KEY_PREFIX}${entry.id}`;
-    localStorage.setItem(key, JSON.stringify(entry));
-
-    // If this entry was migrated from a legacy date-key (where id === date),
-    // we should remove the old legacy key to avoid duplication.
-    if (/^\d{4}-\d{2}-\d{2}$/.test(entry.id)) {
-        const legacyKey = `${LEGACY_KEY_PREFIX}${entry.id}`;
-        if (localStorage.getItem(legacyKey)) {
-            localStorage.removeItem(legacyKey);
-        }
-    }
+    // ID를 문서 ID로 사용하여 저장
+    await setDoc(doc(db, SCHEDULES_COLLECTION, entry.id), entry);
   } catch (error) {
-    console.error("Failed to save schedule:", error);
+    console.error("Failed to save schedule to DB:", error);
+    throw error;
   }
 };
 
-export const loadScheduleEntry = (id: string): ScheduleEntry | null => {
+export const loadScheduleEntry = async (id: string): Promise<ScheduleEntry | null> => {
   try {
-    // 1. Try standard format
-    const newKey = `${ENTRY_KEY_PREFIX}${id}`;
-    const newData = localStorage.getItem(newKey);
-    if (newData) {
-      return JSON.parse(newData);
-    }
+    const docRef = doc(db, SCHEDULES_COLLECTION, id);
+    const docSnap = await getDoc(docRef);
 
-    // 2. Try legacy format (where id is the date string)
-    const legacyKey = `${LEGACY_KEY_PREFIX}${id}`;
-    const legacyData = localStorage.getItem(legacyKey);
-    if (legacyData) {
-      const records = JSON.parse(legacyData);
-      return {
-        id: id,
-        date: id,
-        title: '',
-        records: records,
-        createdAt: 0
-      };
+    if (docSnap.exists()) {
+      return docSnap.data() as ScheduleEntry;
     }
-    
-    // 3. Fallback: Scan values if ID logic fails (rare case)
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(ENTRY_KEY_PREFIX)) {
-             try {
-                const val = localStorage.getItem(key);
-                if (val) {
-                    const entry = JSON.parse(val);
-                    if (entry.id === id) return entry;
-                }
-             } catch(e) {}
-        }
-    }
-
     return null;
   } catch (error) {
-    console.error("Failed to load schedule:", error);
+    console.error("Failed to load schedule from DB:", error);
     return null;
   }
 };
 
-export const deleteScheduleByKey = (key: string): void => {
+export const deleteScheduleByKey = async (key: string): Promise<void> => {
+    // Firestore에서는 key가 곧 Document ID입니다.
     try {
-        console.log(`[Storage] Deleting schedule by key: ${key}`);
-        if (localStorage.getItem(key)) {
-             localStorage.removeItem(key);
-             console.log(`[Storage] Successfully removed key: ${key}`);
-        } else {
-            console.warn(`[Storage] Key not found to delete: ${key}`);
-        }
+        await deleteDoc(doc(db, SCHEDULES_COLLECTION, key));
     } catch (error) {
-        console.error("[Storage] Failed to delete schedule by key:", error);
+        console.error("Failed to delete schedule from DB:", error);
     }
 };
 
-export const deleteScheduleEntry = (id: string): void => {
-  // Backward compatibility wrapper
-  // Try to guess the key or find it
-  try {
-    const key = `${ENTRY_KEY_PREFIX}${id}`;
-    if (localStorage.getItem(key)) {
-        localStorage.removeItem(key);
-        return;
-    }
-    const legacyKey = `${LEGACY_KEY_PREFIX}${id}`;
-    if (localStorage.getItem(legacyKey)) {
-        localStorage.removeItem(legacyKey);
-        return;
-    }
-    
-    // Scan as last resort
-    for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k) continue;
-        if (k.startsWith(ENTRY_KEY_PREFIX)) {
-             const val = localStorage.getItem(k);
-             if (val && JSON.parse(val).id === id) {
-                 localStorage.removeItem(k);
-                 return;
-             }
-        }
-    }
-  } catch (error) {
-    console.error("Failed to delete schedule by id:", error);
-  }
-};
-
-export const deleteAllSchedules = (): void => {
+export const deleteAllSchedules = async (): Promise<void> => {
     try {
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (key.startsWith(ENTRY_KEY_PREFIX) || key.startsWith(LEGACY_KEY_PREFIX))) {
-                keysToRemove.push(key);
-            }
-        }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
+        const q = query(collection(db, SCHEDULES_COLLECTION));
+        const snapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        
+        snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+
+        await batch.commit();
     } catch (error) {
-        console.error("Failed to delete all schedules:", error);
+        console.error("Failed to delete all schedules from DB:", error);
     }
 };
 
-export const resetApplication = (): void => {
+export const resetApplication = async (): Promise<void> => {
     try {
-        localStorage.clear();
+        await deleteAllSchedules();
+        // Reset members to default
+        const docRef = doc(db, SETTINGS_COLLECTION, MEMBERS_DOC_ID);
+        await setDoc(docRef, { members: DEFAULT_TEAM_MEMBERS });
     } catch (error) {
-        console.error("Failed to reset application:", error);
+        console.error("Failed to reset application DB:", error);
     }
 };
 
 export interface ScheduleSummary {
-  storageKey: string; // The actual key in localStorage, used for reliable deletion
+  storageKey: string;
   id: string;
   date: string;
   title: string;
@@ -173,75 +111,68 @@ export interface ScheduleSummary {
   uncompletedNames: string[];
 }
 
-export const getScheduleSummaries = (): ScheduleSummary[] => {
-  const summaries: ScheduleSummary[] = [];
-  
-  const currentMembers = getMembers();
-  const memberMap = new Map<string, string>();
-  currentMembers.forEach(m => memberMap.set(m.id, m.name));
+export const getScheduleSummaries = async (): Promise<ScheduleSummary[]> => {
+  try {
+    // Load members first for name mapping
+    const currentMembers = await getMembers();
+    const memberMap = new Map<string, string>();
+    currentMembers.forEach(m => memberMap.set(m.id, m.name));
 
-  const createSummary = (storageKey: string, id: string, date: string, title: string, records: Record<string, TaskRecord>): ScheduleSummary => {
-      const entries = Object.entries(records);
-      const total = entries.length;
-      let completed = 0;
-      const uncompletedNames: string[] = [];
+    // Load all schedules
+    // 중요: 복합 정렬(orderBy 2개 이상)을 제거하여 색인 오류 방지
+    const q = query(collection(db, SCHEDULES_COLLECTION), orderBy('date', 'desc'));
+    const querySnapshot = await getDocs(q);
 
-      entries.forEach(([memberId, record]) => {
-        if (record.completed) {
-          completed++;
-        } else {
-          const name = memberMap.get(memberId) || memberId;
-          uncompletedNames.push(name);
-        }
-      });
+    const summaries: ScheduleSummary[] = [];
 
-      uncompletedNames.sort((a, b) => {
-        const indexA = currentMembers.findIndex(m => m.name === a);
-        const indexB = currentMembers.findIndex(m => m.name === b);
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        return indexA - indexB;
-      });
+    querySnapshot.forEach((doc) => {
+        const entry = doc.data() as ScheduleEntry;
+        const records = entry.records || {};
+        const entries = Object.entries(records);
+        const total = entries.length;
+        let completed = 0;
+        const uncompletedNames: string[] = [];
 
-      return {
-        storageKey,
-        id,
-        date,
-        title,
-        total,
-        completed,
-        isAllCompleted: total > 0 && total === completed,
-        uncompletedNames
-      };
-  };
+        entries.forEach(([memberId, record]) => {
+            if (record.completed) {
+                completed++;
+            } else {
+                const name = memberMap.get(memberId) || memberId;
+                uncompletedNames.push(name);
+            }
+        });
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
+        uncompletedNames.sort((a, b) => {
+            const indexA = currentMembers.findIndex(m => m.name === a);
+            const indexB = currentMembers.findIndex(m => m.name === b);
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
 
-    if (key.startsWith(ENTRY_KEY_PREFIX)) {
-        try {
-            const entry: ScheduleEntry = JSON.parse(localStorage.getItem(key) || '{}');
-            summaries.push(createSummary(key, entry.id, entry.date, entry.title, entry.records));
-        } catch (e) {
-            console.error("Error parsing entry", key, e);
-        }
-    } else if (key.startsWith(LEGACY_KEY_PREFIX)) {
-        try {
-            const date = key.replace(LEGACY_KEY_PREFIX, '');
-            const records = JSON.parse(localStorage.getItem(key) || '{}');
-            summaries.push(createSummary(key, date, date, '', records));
-        } catch (e) {
-            console.error("Error parsing legacy entry", key, e);
-        }
-    }
+        summaries.push({
+            storageKey: doc.id, // Firestore Doc ID
+            id: entry.id,
+            date: entry.date,
+            title: entry.title,
+            total,
+            completed,
+            isAllCompleted: total > 0 && total === completed,
+            uncompletedNames
+        });
+    });
+    
+    // 메모리 내에서 2차 정렬 (날짜 같으면 최신순)
+    summaries.sort((a, b) => {
+        if (a.date !== b.date) return 0; // 이미 쿼리에서 정렬됨
+        // ID에 타임스탬프가 포함되어 있으므로 ID 역순으로 정렬하면 최신순이 됨
+        return b.id.localeCompare(a.id);
+    });
+
+    return summaries;
+
+  } catch (error) {
+    console.error("Error loading summaries from DB:", error);
+    return [];
   }
-
-  // Sort by Date (desc), then Title or ID
-  return summaries.sort((a, b) => {
-      if (a.date !== b.date) {
-          return b.date.localeCompare(a.date);
-      }
-      return b.id.localeCompare(a.id);
-  });
 };

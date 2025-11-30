@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Save, List, Sparkles, RotateCcw, ArrowLeft, Trash2, Users, Settings } from 'lucide-react';
+import { Calendar, Save, List, Sparkles, RotateCcw, ArrowLeft, Trash2, Users, Settings, RefreshCw } from 'lucide-react';
 import { INITIAL_RECORD } from './constants';
 import { TaskRecord, ScheduleEntry, Person } from './types';
 import { PersonRow } from './components/PersonRow';
@@ -7,7 +8,8 @@ import { SummaryModal } from './components/SummaryModal';
 import { BoardList } from './components/BoardList';
 import { MemberManager } from './components/MemberManager';
 import { AdminLoginModal } from './components/AdminLoginModal';
-import { saveScheduleEntry, loadScheduleEntry, deleteScheduleEntry, deleteScheduleByKey, getScheduleSummaries, ScheduleSummary, getMembers, saveMembers, deleteAllSchedules, resetApplication } from './services/storageService';
+// Fix: Removed incorrect import 'deleteScheduleEntry'
+import { saveScheduleEntry, loadScheduleEntry, deleteScheduleByKey, getScheduleSummaries, ScheduleSummary, getMembers, saveMembers, deleteAllSchedules, resetApplication } from './services/storageService';
 import { generateDailyReport } from './services/geminiService';
 
 type ViewMode = 'list' | 'editor' | 'members';
@@ -15,6 +17,7 @@ type ViewMode = 'list' | 'editor' | 'members';
 const App: React.FC = () => {
   // --- State ---
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [isLoading, setIsLoading] = useState(false); // New Loading State
   
   // Settings State
   const [members, setMembers] = useState<Person[]>([]);
@@ -41,18 +44,28 @@ const App: React.FC = () => {
 
   // --- Effects ---
 
-  // Initial Load
+  // Initial Load (Members)
   useEffect(() => {
-      setMembers(getMembers());
+      const initMembers = async () => {
+          const loadedMembers = await getMembers();
+          setMembers(loadedMembers);
+      };
+      initMembers();
   }, []);
 
   // Load summaries for the list view
+  const loadSummaries = useCallback(async () => {
+      if (viewMode === 'list') {
+          setIsLoading(true);
+          const data = await getScheduleSummaries();
+          setSummaries(data);
+          setIsLoading(false);
+      }
+  }, [viewMode]);
+
   useEffect(() => {
-    if (viewMode === 'list') {
-        const data = getScheduleSummaries();
-        setSummaries(data);
-    }
-  }, [viewMode, members]);
+    loadSummaries();
+  }, [loadSummaries]);
 
   // --- Handlers ---
 
@@ -75,20 +88,24 @@ const App: React.FC = () => {
     }
   };
 
-  const handleMembersUpdate = (newMembers: Person[]) => {
+  const handleMembersUpdate = async (newMembers: Person[]) => {
+      setIsLoading(true);
       setMembers(newMembers);
-      saveMembers(newMembers);
+      await saveMembers(newMembers);
+      setIsLoading(false);
   };
 
-  const handleClearAllData = (type: 'schedules' | 'all') => {
+  const handleClearAllData = async (type: 'schedules' | 'all') => {
+      setIsLoading(true);
       if (type === 'schedules') {
-          deleteAllSchedules();
+          await deleteAllSchedules();
           setSummaries([]);
       } else if (type === 'all') {
-          resetApplication();
-          setMembers(getMembers()); 
+          await resetApplication();
+          setMembers(await getMembers()); 
           setSummaries([]);
       }
+      setIsLoading(false);
   };
 
   const handleRecordChange = useCallback((id: string, field: keyof TaskRecord, value: any) => {
@@ -112,9 +129,9 @@ const App: React.FC = () => {
     setIsSaved(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsLoading(true);
     // ID Format: Date + Underscore + Timestamp Sequence (e.g., 2024-05-20_1716182922123)
-    // This allows for 'Date based' and 'Sequence based' uniqueness
     const idToSave = currentId || `${currentDate}_${Date.now()}`;
     
     // Clean up records: only save records for current members
@@ -131,18 +148,20 @@ const App: React.FC = () => {
         createdAt: currentId ? 0 : Date.now() 
     };
 
-    saveScheduleEntry(entry);
+    await saveScheduleEntry(entry);
     
-    // Update current ID
     setCurrentId(idToSave);
     setIsSaved(true);
+    setIsLoading(false);
     setViewMode('list');
   };
 
-  const handleDeleteCurrent = () => {
+  const handleDeleteCurrent = async () => {
       if (!currentId) return;
       if (window.confirm('정말 이 기록을 삭제하시겠습니까?')) {
-          deleteScheduleEntry(currentId);
+          setIsLoading(true);
+          await deleteScheduleByKey(currentId);
+          setIsLoading(false);
           setViewMode('list');
       }
   };
@@ -170,8 +189,11 @@ const App: React.FC = () => {
     }
   }
 
-  const handleSelectEntryFromList = (id: string) => {
-      const entry = loadScheduleEntry(id);
+  const handleSelectEntryFromList = async (id: string) => {
+      setIsLoading(true);
+      const entry = await loadScheduleEntry(id);
+      setIsLoading(false);
+      
       if (entry) {
           setCurrentId(entry.id);
           setCurrentDate(entry.date);
@@ -182,18 +204,19 @@ const App: React.FC = () => {
       }
   };
 
-  // Uses the specific storage key for reliable deletion
-  const handleDeleteEntryFromList = (storageKey: string) => {
-      deleteScheduleByKey(storageKey);
-      // Immediately refresh the list state with a new array reference
-      const updatedSummaries = getScheduleSummaries();
-      setSummaries([...updatedSummaries]);
+  const handleDeleteEntryFromList = async (storageKey: string) => {
+      setIsLoading(true);
+      await deleteScheduleByKey(storageKey);
+      await loadSummaries(); // Refresh list
+      setIsLoading(false);
   };
 
-  const handleDeleteEntriesFromList = (storageKeys: string[]) => {
-      storageKeys.forEach(key => deleteScheduleByKey(key));
-      const updatedSummaries = getScheduleSummaries();
-      setSummaries([...updatedSummaries]);
+  const handleDeleteEntriesFromList = async (storageKeys: string[]) => {
+      setIsLoading(true);
+      // Execute all deletes
+      await Promise.all(storageKeys.map(key => deleteScheduleByKey(key)));
+      await loadSummaries(); // Refresh list
+      setIsLoading(false);
   };
 
   const handleCreateNew = () => {
@@ -267,6 +290,17 @@ const App: React.FC = () => {
   }, 0);
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  if (isLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+              <div className="text-center space-y-4">
+                  <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                  <p className="text-slate-500 font-medium">데이터 동기화 중...</p>
+              </div>
+          </div>
+      );
+  }
+
   return (
     <div className="min-h-screen pb-20 bg-slate-50">
       {/* Header */}
@@ -284,14 +318,23 @@ const App: React.FC = () => {
             
             <div className="flex items-center gap-3">
                 {viewMode === 'list' && (
-                    <button
-                        onClick={() => setViewMode('members')}
-                        className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
-                        title="설정 및 팀원 관리"
-                    >
-                        <Settings size={20} />
-                        <span className="hidden sm:inline font-medium">설정</span>
-                    </button>
+                    <>
+                        <button
+                            onClick={() => loadSummaries()}
+                            className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
+                            title="새로고침"
+                        >
+                            <RefreshCw size={20} />
+                        </button>
+                        <button
+                            onClick={() => handleVerifyAdmin(() => setViewMode('members'))}
+                            className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                            title="설정 및 팀원 관리"
+                        >
+                            <Settings size={20} />
+                            <span className="hidden sm:inline font-medium">설정</span>
+                        </button>
+                    </>
                 )}
 
                 {viewMode === 'editor' ? (
@@ -349,7 +392,7 @@ const App: React.FC = () => {
                         >
                             <ArrowLeft size={24} />
                         </button>
-                        <h2 className="text-lg font-bold text-slate-800">업무 기록 작성</h2>
+                        <h2 className="text-lg font-bold text-slate-800">체크 일지작성</h2>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -372,7 +415,7 @@ const App: React.FC = () => {
                                 type="text"
                                 value={title}
                                 onChange={handleTitleChange}
-                                placeholder="예: 오전 업무, 긴급 점검 등"
+                                placeholder="예:체크사항,기록사항 등"
                                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none placeholder-slate-400"
                             />
                         </div>

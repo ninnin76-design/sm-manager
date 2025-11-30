@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Person } from '../types';
 import { TEAMS } from '../types';
-import { ArrowLeft, UserPlus, Trash2, Users, Save, RotateCcw, AlertTriangle, Database } from 'lucide-react';
+import { ArrowLeft, UserPlus, Trash2, Users, Save, RotateCcw, AlertTriangle, Database, Edit2, X, Check } from 'lucide-react';
 
 interface MemberManagerProps {
   members: Person[];
@@ -14,9 +14,14 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
   const [localMembers, setLocalMembers] = useState<Person[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   
+  // Form State
   const [newName, setNewName] = useState('');
+  // Explicitly type as string to avoid inference as literal union type
   const [newGroup, setNewGroup] = useState<string>(TEAMS.HWASEONG);
   const [isCustomGroup, setIsCustomGroup] = useState(false);
+  
+  // Edit Mode State
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Sync local state with props when initialMembers changes (e.g. after save or on mount)
   useEffect(() => {
@@ -24,23 +29,61 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
     setHasChanges(false);
   }, [initialMembers]);
 
-  const handleAddMember = (e: React.FormEvent) => {
+  const resetForm = () => {
+    setNewName('');
+    // Keep group or reset? Keeping group is usually more convenient for bulk entry
+    setEditingId(null);
+    setIsCustomGroup(false);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newGroup.trim()) return;
 
-    const newPerson: Person = {
-      id: `user_${Date.now()}`,
-      name: newName.trim(),
-      group: newGroup.trim()
-    };
+    if (editingId) {
+        // Update existing member
+        setLocalMembers(prev => prev.map(m => 
+            m.id === editingId 
+                ? { ...m, name: newName.trim(), group: newGroup.trim() } 
+                : m
+        ));
+        setEditingId(null);
+    } else {
+        // Add new member
+        const newPerson: Person = {
+            id: `user_${Date.now()}`,
+            name: newName.trim(),
+            group: newGroup.trim()
+        };
+        setLocalMembers(prev => [...prev, newPerson]);
+    }
 
-    setLocalMembers(prev => [...prev, newPerson]);
     setHasChanges(true);
-    setNewName('');
-    // Keep the group selection for convenience
+    setNewName(''); // Clear name only to allow rapid entry of same group
+  };
+
+  const handleEditClick = (member: Person) => {
+    setEditingId(member.id);
+    setNewName(member.name);
+    setNewGroup(member.group);
+    
+    // Check if group is custom
+    const defaultGroups = [TEAMS.HWASEONG, TEAMS.OSAN] as string[];
+    if (!defaultGroups.includes(member.group)) {
+        setIsCustomGroup(true); // Assuming logic for custom group detection relies on being outside defaults or UI state
+    } else {
+        setIsCustomGroup(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+      resetForm();
   };
 
   const handleDeleteMember = (id: string) => {
+    if (editingId === id) {
+        resetForm();
+    }
     setLocalMembers(prev => prev.filter(m => m.id !== id));
     setHasChanges(true);
   };
@@ -55,6 +98,7 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
     if (window.confirm('변경사항을 모두 취소하고 초기화하시겠습니까?')) {
       setLocalMembers(initialMembers);
       setHasChanges(false);
+      resetForm();
     }
   };
 
@@ -106,18 +150,18 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
         <div>
           <h2 className="text-xl font-bold text-slate-800">설정 및 팀원 관리</h2>
           <p className="text-sm text-slate-500">
-            팀원을 관리하거나 데이터를 정리할 수 있습니다.
+            팀원을 등록, 수정, 삭제할 수 있습니다.
           </p>
         </div>
       </div>
 
-      {/* Add New Member Form */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <UserPlus size={18} className="text-blue-600" />
-            새 팀원 등록
+      {/* Add/Edit Member Form */}
+      <div className={`p-5 rounded-xl border shadow-sm transition-all duration-300 ${editingId ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200'}`}>
+        <h3 className={`text-sm font-bold mb-4 flex items-center gap-2 ${editingId ? 'text-indigo-700' : 'text-slate-900'}`}>
+            {editingId ? <Edit2 size={18} /> : <UserPlus size={18} className="text-blue-600" />}
+            {editingId ? '팀원 정보 수정' : '새 팀원 등록'}
         </h3>
-        <form onSubmit={handleAddMember} className="flex flex-col md:flex-row gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 space-y-1">
                 <label className="text-xs font-semibold text-slate-500 ml-1">이름</label>
                 <input
@@ -125,7 +169,7 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="이름 입력"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
             </div>
             <div className="flex-1 space-y-1">
@@ -142,7 +186,7 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
                                     setNewGroup(e.target.value);
                                 }
                             }}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm appearance-none focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm appearance-none focus:ring-2 focus:ring-blue-500 outline-none"
                         >
                             {existingGroups.map(g => (
                                 <option key={g} value={g}>{g}</option>
@@ -161,25 +205,39 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
                             onChange={(e) => setNewGroup(e.target.value)}
                             placeholder="소속명 입력"
                             autoFocus
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                          <button
                             type="button"
                             onClick={() => { setIsCustomGroup(false); setNewGroup(TEAMS.HWASEONG); }}
-                            className="px-3 py-2 text-xs bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600"
+                            className="px-3 py-2 text-xs bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-600"
                         >
                             취소
                         </button>
                     </div>
                 )}
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
+                {editingId && (
+                    <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="px-4 py-2 bg-white border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors h-[42px]"
+                    >
+                        취소
+                    </button>
+                )}
                 <button
                     type="submit"
                     disabled={!newName.trim() || !newGroup.trim()}
-                    className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-[42px]"
+                    className={`
+                        w-full md:w-auto px-6 py-2 font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors h-[42px] flex items-center justify-center gap-2
+                        ${editingId 
+                            ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'}
+                    `}
                 >
-                    추가
+                    {editingId ? <><Check size={18}/>수정 완료</> : '추가'}
                 </button>
             </div>
         </form>
@@ -204,15 +262,26 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
                     </div>
                     <div className="divide-y divide-slate-100">
                         {groupMembers.map(member => (
-                            <div key={member.id} className="px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                                <span className="font-medium text-slate-800">{member.name}</span>
-                                <button
-                                    onClick={() => handleDeleteMember(member.id)}
-                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
-                                    title="목록에서 제거"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                            <div key={member.id} className={`px-4 py-3 flex items-center justify-between transition-colors ${editingId === member.id ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
+                                <span className={`font-medium ${editingId === member.id ? 'text-indigo-700' : 'text-slate-800'}`}>
+                                    {member.name}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => handleEditClick(member)}
+                                        className={`p-1.5 rounded-md transition-all ${editingId === member.id ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                                        title="정보 수정"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteMember(member.id)}
+                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
+                                        title="목록에서 제거"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -277,7 +346,7 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
             className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold text-sm"
         >
             <Save size={18} />
-            변경사항 저장
+            변경사항 저장 (DB반영)
         </button>
       </div>
     </div>

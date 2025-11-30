@@ -48,7 +48,7 @@ export const PersonRow: React.FC<PersonRowProps> = ({ person, record, onChange }
           type="text"
           value={record.remarks}
           onChange={(e) => onChange(person.id, 'remarks', e.target.value)}
-          placeholder="특이사항이나 사유를 입력하세요..."
+          placeholder=""
           className={`
             w-full pl-10 pr-4 py-2 rounded-md border text-sm outline-none transition-all
             ${record.completed 

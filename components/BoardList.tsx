@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ScheduleSummary } from '../services/storageService';
 import { Trash2, Calendar, CheckCircle2, Circle, Users, Edit2, X, CheckSquare, AlertTriangle } from 'lucide-react';
@@ -114,7 +115,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
             {!isSelectionMode && (
               <>
                 <button 
-                    onClick={onManageMembers}
+                    onClick={() => onVerifyAdmin(onManageMembers)}
                     className="flex-1 md:flex-none bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
                 >
                     <Users size={18} />
