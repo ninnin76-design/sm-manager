@@ -149,7 +149,7 @@ const App: React.FC = () => {
     setIsSaved(false);
   };
 
-  // New: Handle Privacy Mode Change
+  // New: Handle Privacy Mode Change (Restored)
   const handlePrivacyChange = (mode: 'public' | 'private') => {
       setPrivacyMode(mode);
       setIsSaved(false); // Mark as unsaved so the save button becomes active
@@ -475,7 +475,9 @@ const App: React.FC = () => {
                             >
                                 <ArrowLeft size={24} />
                             </button>
-                            <h2 className="text-lg font-bold text-slate-800">체크 일지작성</h2>
+                            <h2 className="text-lg font-bold text-slate-800">
+                                {!currentId ? '체크사항 등록' : isMetadataLocked ? '체크사항 작성' : '체크사항 수정'}
+                            </h2>
                         </div>
                     </div>
                     
@@ -507,8 +509,8 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Privacy Mode Toggle (Only visible if Admin or creating new entry) */}
-                    {(!isMetadataLocked || isAdmin) && (
+                    {/* Privacy Mode Toggle (Visible ONLY when Unlocked - e.g., Register or Edit Mode) */}
+                    {!isMetadataLocked && (
                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
                                 {privacyMode === 'public' ? <Eye size={18} className="text-blue-500"/> : <EyeOff size={18} className="text-slate-500"/>}
@@ -519,7 +521,7 @@ const App: React.FC = () => {
                                     onClick={() => handlePrivacyChange('public')}
                                     className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${privacyMode === 'public' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}
                                 >
-                                    모두 보기 (기본)
+                                    전체 공개 (기본)
                                 </button>
                                 <button
                                     onClick={() => handlePrivacyChange('private')}

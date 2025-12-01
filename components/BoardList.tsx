@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ScheduleSummary } from '../services/storageService';
 import { Trash2, Calendar, CheckCircle2, Circle, Users, Edit2, X, CheckSquare, AlertTriangle } from 'lucide-react';
@@ -96,7 +95,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, isAdmin, onSele
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 relative">
              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800">체크 일지목록</h2>
+                    <h2 className="text-2xl font-bold text-slate-800">체크사항 목록</h2>
                     <p className="text-slate-500 text-sm mt-1">목록 내용을 확인하고 체크하세요!!</p>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
@@ -114,7 +113,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, isAdmin, onSele
                             className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
                         >
                             <Calendar size={18} />
-                            <span>작성</span>
+                            <span>등록</span>
                         </button>
                         </>
                     )}
@@ -127,7 +126,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, isAdmin, onSele
                         <Calendar className="text-slate-400" size={32} />
                     </div>
                     <p className="text-lg font-medium">저장된 기록이 없습니다.</p>
-                    {isAdmin && <p className="text-sm">새로운 체크 일지를 작성해 보세요.</p>}
+                    {isAdmin && <p className="text-sm">새로운 체크 사항을 작성해 보세요.</p>}
                 </div>
             </div>
         </div>
@@ -139,7 +138,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, isAdmin, onSele
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2 md:mb-6">
         <div>
-            <h2 className="text-2xl font-bold text-slate-800">체크 일지목록</h2>
+            <h2 className="text-2xl font-bold text-slate-800">체크사항 목록</h2>
             <p className="text-slate-500 text-sm mt-1">목록 내용을 확인하고 체크하세요!!</p>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
@@ -158,7 +157,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, isAdmin, onSele
                     className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
                 >
                     <Calendar size={16} />
-                    <span>작성</span>
+                    <span>등록</span>
                 </button>
                 </>
             )}
