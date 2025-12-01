@@ -14,7 +14,15 @@ type ViewMode = 'list' | 'editor' | 'members';
 
 const App: React.FC = () => {
   // --- Auth State ---
-  const [currentUser, setCurrentUser] = useState<Person | 'admin' | null>(null);
+  // Fix: Initialize state from localStorage to persist login across reloads (e.g. pull-to-refresh)
+  const [currentUser, setCurrentUser] = useState<Person | 'admin' | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('sm_manager_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
   // --- State ---
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -73,14 +81,16 @@ const App: React.FC = () => {
 
   const handleLogin = (user: Person | 'admin') => {
       setCurrentUser(user);
+      localStorage.setItem('sm_manager_user', JSON.stringify(user));
   };
 
   const handleLogout = () => {
-      // 즉시 로그아웃 처리 (팝업 제거로 작동 보장)
+      // 즉시 로그아웃 처리 (팝업 제거로 작동 보장 및 스크롤 오류 해결)
       setCurrentUser(null);
+      localStorage.removeItem('sm_manager_user');
       setViewMode('list');
       
-      // 에디터 상태 초기화 (선택 사항)
+      // 에디터 상태 초기화
       setCurrentId(null);
       setTitle('');
       setRecords({});
