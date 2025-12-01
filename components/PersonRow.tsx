@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Person, TaskRecord } from '../types';
 import { Check, AlertCircle, Lock } from 'lucide-react';
@@ -8,9 +7,10 @@ interface PersonRowProps {
   record: TaskRecord;
   onChange: (id: string, field: keyof TaskRecord, value: any) => void;
   disabled?: boolean;
+  hideZoneNumber?: boolean; // New prop to control ID visibility
 }
 
-export const PersonRow: React.FC<PersonRowProps> = ({ person, record, onChange, disabled = false }) => {
+export const PersonRow: React.FC<PersonRowProps> = ({ person, record, onChange, disabled = false, hideZoneNumber = false }) => {
   return (
     <div className={`
       flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border transition-all duration-200 relative
@@ -37,7 +37,10 @@ export const PersonRow: React.FC<PersonRowProps> = ({ person, record, onChange, 
             <span className={`font-semibold text-lg sm:text-base ${record.completed ? 'text-green-800' : 'text-slate-800'}`}>
             {person.name}
             </span>
-            {person.zoneNumber && <span className="text-[10px] text-slate-400 font-mono leading-none">ID: {person.zoneNumber}</span>}
+            {/* Show ID only if it exists AND not hidden */}
+            {person.zoneNumber && !hideZoneNumber && (
+                <span className="text-[10px] text-slate-400 font-mono leading-none">ID: {person.zoneNumber}</span>
+            )}
         </div>
       </label>
 
