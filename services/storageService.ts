@@ -1,4 +1,3 @@
-
 import { TaskRecord, ScheduleEntry, Person } from '../types';
 import { TEAM_MEMBERS as DEFAULT_TEAM_MEMBERS } from '../constants';
 import { db } from '../firebase';

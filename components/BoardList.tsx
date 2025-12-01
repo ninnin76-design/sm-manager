@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { ScheduleSummary } from '../services/storageService';
 import { Trash2, Calendar, CheckCircle2, Circle, Users, Edit2, X, CheckSquare, AlertTriangle } from 'lucide-react';
 
 interface BoardListProps {
   summaries: ScheduleSummary[];
+  isAdmin: boolean;
   onSelectEntry: (id: string) => void;
   onEditEntry: (id: string) => void;
   onDeleteEntry: (storageKey: string) => void;
@@ -13,7 +15,7 @@ interface BoardListProps {
   onVerifyAdmin: (action: () => void) => void;
 }
 
-export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, onEditEntry, onDeleteEntry, onDeleteEntries, onCreateNew, onManageMembers, onVerifyAdmin }) => {
+export const BoardList: React.FC<BoardListProps> = ({ summaries, isAdmin, onSelectEntry, onEditEntry, onDeleteEntry, onDeleteEntries, onCreateNew, onManageMembers, onVerifyAdmin }) => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   
@@ -98,20 +100,24 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
                     <p className="text-slate-500 text-sm mt-1">목록 내용을 확인하고 체크하세요!!</p>
                 </div>
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <button 
-                        onClick={() => onVerifyAdmin(onManageMembers)}
-                        className="flex-1 md:flex-none bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
-                    >
-                        <Users size={18} />
-                        <span className="hidden sm:inline">팀원 관리</span>
-                    </button>
-                    <button 
-                        onClick={() => onVerifyAdmin(onCreateNew)}
-                        className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
-                    >
-                        <Calendar size={18} />
-                        <span>작성</span>
-                    </button>
+                    {isAdmin && (
+                        <>
+                        <button 
+                            onClick={() => onVerifyAdmin(onManageMembers)}
+                            className="flex-1 md:flex-none bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
+                        >
+                            <Users size={18} />
+                            <span className="hidden sm:inline">SM 관리</span>
+                        </button>
+                        <button 
+                            onClick={() => onVerifyAdmin(onCreateNew)}
+                            className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2"
+                        >
+                            <Calendar size={18} />
+                            <span>작성</span>
+                        </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -121,7 +127,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
                         <Calendar className="text-slate-400" size={32} />
                     </div>
                     <p className="text-lg font-medium">저장된 기록이 없습니다.</p>
-                    <p className="text-sm">새로운 체크 일지를 작성해 보세요.</p>
+                    {isAdmin && <p className="text-sm">새로운 체크 일지를 작성해 보세요.</p>}
                 </div>
             </div>
         </div>
@@ -138,20 +144,24 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
             
-            <button 
-                onClick={() => onVerifyAdmin(onManageMembers)}
-                className="flex-shrink-0 bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
-            >
-                <Users size={16} />
-                <span>SM 관리</span>
-            </button>
-            <button 
-                onClick={() => onVerifyAdmin(onCreateNew)}
-                className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
-            >
-                <Calendar size={16} />
-                <span>작성</span>
-            </button>
+            {isAdmin && (
+                <>
+                <button 
+                    onClick={() => onVerifyAdmin(onManageMembers)}
+                    className="flex-shrink-0 bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
+                >
+                    <Users size={16} />
+                    <span>SM 관리</span>
+                </button>
+                <button 
+                    onClick={() => onVerifyAdmin(onCreateNew)}
+                    className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap text-sm"
+                >
+                    <Calendar size={16} />
+                    <span>작성</span>
+                </button>
+                </>
+            )}
         </div>
       </div>
 
@@ -206,7 +216,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
                         </div>
                     </div>
                     
-                    {!isSelectionMode && (
+                    {isAdmin && !isSelectionMode && (
                       <div className="flex items-center -mr-2 relative z-10">
                         <button 
                             type="button"
@@ -273,8 +283,8 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
                   <th className="px-6 py-4 font-semibold w-[15%]">날짜</th>
                   <th className="px-6 py-4 font-semibold w-[25%]">제목</th>
                   <th className="px-6 py-4 font-semibold w-[20%]">진행 현황</th>
-                  <th className="px-6 py-4 font-semibold w-[25%]">미완료 인원</th>
-                  {!isSelectionMode && <th className="px-6 py-4 font-semibold text-right w-[15%]">관리</th>}
+                  <th className="px-6 py-4 font-semibold w-[25%]">미완료 SM</th>
+                  {isAdmin && !isSelectionMode && <th className="px-6 py-4 font-semibold text-right w-[15%]">관리</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -350,7 +360,7 @@ export const BoardList: React.FC<BoardListProps> = ({ summaries, onSelectEntry, 
                     </td>
 
                     {/* Action Cell */}
-                    {!isSelectionMode && (
+                    {isAdmin && !isSelectionMode && (
                       <td 
                         className="px-6 py-4 align-top text-right"
                         onClick={(e) => e.stopPropagation()} 

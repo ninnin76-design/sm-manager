@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Save, List, Sparkles, RotateCcw, ArrowLeft, Users, RefreshCw } from 'lucide-react';
+import { Calendar, Save, List, Sparkles, RotateCcw, ArrowLeft, Users, RefreshCw, LogOut, Eye, EyeOff } from 'lucide-react';
 import { INITIAL_RECORD } from './constants';
 import { TaskRecord, ScheduleEntry, Person } from './types';
 import { PersonRow } from './components/PersonRow';
 import { SummaryModal } from './components/SummaryModal';
 import { BoardList } from './components/BoardList';
 import { MemberManager } from './components/MemberManager';
-import { AdminLoginModal } from './components/AdminLoginModal';
+import { LoginScreen } from './components/LoginScreen'; 
 import { saveScheduleEntry, loadScheduleEntry, deleteScheduleByKey, getScheduleSummaries, ScheduleSummary, getMembers, saveMembers, deleteAllSchedules, resetApplication } from './services/storageService';
 import { generateDailyReport } from './services/geminiService';
 
 type ViewMode = 'list' | 'editor' | 'members';
 
 const App: React.FC = () => {
+  // --- Auth State ---
+  const [currentUser, setCurrentUser] = useState<Person | 'admin' | null>(null);
+
   // --- State ---
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [isLoading, setIsLoading] = useState(false);
@@ -20,18 +23,14 @@ const App: React.FC = () => {
   // Settings State
   const [members, setMembers] = useState<Person[]>([]);
 
-  // Admin State
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [pendingAdminAction, setPendingAdminAction] = useState<(() => void) | null>(null);
-
   // Editor Data States
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [title, setTitle] = useState<string>('');
   const [records, setRecords] = useState<Record<string, TaskRecord>>({});
+  const [privacyMode, setPrivacyMode] = useState<'public' | 'private'>('public'); // Default to public
   
-  // New: Metadata Lock State (날짜/제목 수정 잠금 여부)
+  // Metadata Lock State
   const [isMetadataLocked, setIsMetadataLocked] = useState(true);
   
   // UI States
@@ -47,22 +46,24 @@ const App: React.FC = () => {
 
   // Initial Load (Members)
   useEffect(() => {
-      const initMembers = async () => {
+      const initData = async () => {
+          setIsLoading(true);
           const loadedMembers = await getMembers();
           setMembers(loadedMembers);
+          setIsLoading(false);
       };
-      initMembers();
+      initData();
   }, []);
 
   // Load summaries for the list view
   const loadSummaries = useCallback(async () => {
-      if (viewMode === 'list') {
+      if (viewMode === 'list' && currentUser) {
           setIsLoading(true);
           const data = await getScheduleSummaries();
           setSummaries(data);
           setIsLoading(false);
       }
-  }, [viewMode]);
+  }, [viewMode, currentUser]);
 
   useEffect(() => {
     loadSummaries();
@@ -70,22 +71,30 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  // Admin Auth Logic
+  const handleLogin = (user: Person | 'admin') => {
+      setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+      // 즉시 로그아웃 처리 (팝업 제거로 작동 보장)
+      setCurrentUser(null);
+      setViewMode('list');
+      
+      // 에디터 상태 초기화 (선택 사항)
+      setCurrentId(null);
+      setTitle('');
+      setRecords({});
+  };
+
+  // Helper to check if current user is admin
+  const isAdmin = currentUser === 'admin';
+
   const handleVerifyAdmin = (action: () => void) => {
+    // Replaced standard verify logic since we now have persistent login state
     if (isAdmin) {
       action();
     } else {
-      setPendingAdminAction(() => action);
-      setShowAdminLogin(true);
-    }
-  };
-
-  const handleAdminLoginSuccess = () => {
-    setIsAdmin(true);
-    setShowAdminLogin(false);
-    if (pendingAdminAction) {
-      pendingAdminAction();
-      setPendingAdminAction(null);
+      alert('관리자 권한이 필요합니다.');
     }
   };
 
@@ -130,6 +139,12 @@ const App: React.FC = () => {
     setIsSaved(false);
   };
 
+  // New: Handle Privacy Mode Change
+  const handlePrivacyChange = (mode: 'public' | 'private') => {
+      setPrivacyMode(mode);
+      setIsSaved(false); // Mark as unsaved so the save button becomes active
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
     // ID Format: Date + Underscore + Timestamp Sequence
@@ -146,7 +161,8 @@ const App: React.FC = () => {
         date: currentDate,
         title: title,
         records: cleanRecords,
-        createdAt: currentId ? 0 : Date.now() 
+        createdAt: currentId ? 0 : Date.now(),
+        privacyMode: privacyMode 
     };
 
     await saveScheduleEntry(entry);
@@ -191,6 +207,7 @@ const App: React.FC = () => {
           setCurrentDate(entry.date);
           setTitle(entry.title || '');
           setRecords(entry.records);
+          setPrivacyMode(entry.privacyMode || 'public'); // Load privacy setting
           setIsSaved(true);
           setIsMetadataLocked(true); // 잠금 모드 활성화
           setViewMode('editor');
@@ -208,6 +225,7 @@ const App: React.FC = () => {
         setCurrentDate(entry.date);
         setTitle(entry.title || '');
         setRecords(entry.records);
+        setPrivacyMode(entry.privacyMode || 'public'); // Load privacy setting
         setIsSaved(true);
         setIsMetadataLocked(false); // 잠금 모드 해제
         setViewMode('editor');
@@ -232,6 +250,7 @@ const App: React.FC = () => {
       setCurrentId(null);
       setCurrentDate(new Date().toISOString().split('T')[0]);
       setTitle('');
+      setPrivacyMode('public'); // Default to public for new entries
       
       const initialRecords: Record<string, TaskRecord> = {};
       members.forEach(member => {
@@ -248,6 +267,13 @@ const App: React.FC = () => {
     const groups: string[] = Array.from(new Set(members.map(m => m.group)));
     
     groups.sort((a, b) => {
+        // Priority 1: Current User's Group (if logged in as a specific person)
+        if (currentUser && typeof currentUser !== 'string') {
+            if (a === currentUser.group) return -1;
+            if (b === currentUser.group) return 1;
+        }
+
+        // Priority 2: Default Ordering
         if (a === '화성병점') return -1;
         if (b === '화성병점') return 1;
         if (a === '오산중앙') return -1;
@@ -256,7 +282,26 @@ const App: React.FC = () => {
     });
 
     return groups.map(groupName => {
-        const groupMembers = members.filter(m => m.group === groupName);
+        // Filter members based on privacy settings and user role
+        let groupMembers = members.filter(m => m.group === groupName);
+
+        // Apply privacy filter:
+        if (!isAdmin && privacyMode === 'private') {
+             groupMembers = groupMembers.filter(m => typeof currentUser !== 'string' && m.id === currentUser.id);
+        }
+
+        // If no members in this group to show, skip rendering the group
+        if (groupMembers.length === 0) return null;
+
+        // ** Priority Sort: Current User first in their group **
+        if (currentUser && typeof currentUser !== 'string' && groupName === currentUser.group) {
+            groupMembers.sort((a, b) => {
+                if (a.id === currentUser.id) return -1;
+                if (b.id === currentUser.id) return 1;
+                return 0; // Maintain original order for others
+            });
+        }
+
         const allCompleted = groupMembers.every(m => {
             const record = records[m.id] as TaskRecord | undefined;
             return record?.completed;
@@ -277,14 +322,20 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="p-4 space-y-3">
-              {groupMembers.map(member => (
-                <PersonRow
-                  key={member.id}
-                  person={member}
-                  record={records[member.id] || { ...INITIAL_RECORD }}
-                  onChange={handleRecordChange}
-                />
-              ))}
+              {groupMembers.map(member => {
+                const isMyRow = currentUser !== 'admin' && currentUser?.id === member.id;
+                const isDisabled = !isAdmin && !isMyRow;
+
+                return (
+                    <PersonRow
+                        key={member.id}
+                        person={member}
+                        record={records[member.id] || { ...INITIAL_RECORD }}
+                        onChange={handleRecordChange}
+                        disabled={isDisabled}
+                    />
+                );
+              })}
             </div>
           </div>
         );
@@ -298,6 +349,13 @@ const App: React.FC = () => {
   }, 0);
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
+  // --- Render Login Screen if not authenticated ---
+  if (!currentUser) {
+    if (isLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div></div>;
+    return <LoginScreen members={members} onLogin={handleLogin} />;
+  }
+
+  // --- Main App Render ---
   if (isLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -317,15 +375,21 @@ const App: React.FC = () => {
                 className="flex items-center gap-3 cursor-pointer" 
                 onClick={() => setViewMode('list')}
             >
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">
-                    S
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold shadow-sm ${isAdmin ? 'bg-slate-800' : 'bg-blue-600'}`}>
+                    {isAdmin ? 'A' : 'S'}
                 </div>
                 <h1 className="text-xl font-bold text-slate-800 hidden sm:block">SM관리 매니저</h1>
+                {!isAdmin && typeof currentUser !== 'string' && (
+                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 font-medium">
+                        {currentUser?.name}
+                    </span>
+                )}
             </div>
             
             <div className="flex items-center gap-3">
                 {viewMode === 'list' && (
                     <button
+                        type="button"
                         onClick={() => loadSummaries()}
                         className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
                         title="새로고침"
@@ -336,6 +400,7 @@ const App: React.FC = () => {
 
                 {viewMode === 'editor' && (
                      <button
+                        type="button"
                         onClick={() => setViewMode('list')}
                         className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
                      >
@@ -343,6 +408,15 @@ const App: React.FC = () => {
                         <span className="hidden sm:inline font-medium">목록으로</span>
                      </button>
                 )}
+
+                <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                    title="로그아웃"
+                >
+                    <LogOut size={20} />
+                </button>
             </div>
         </div>
       </header>
@@ -352,6 +426,7 @@ const App: React.FC = () => {
         {viewMode === 'list' && (
             <BoardList 
                 summaries={summaries}
+                isAdmin={isAdmin}
                 onSelectEntry={handleSelectEntryFromList}
                 onEditEntry={handleEditEntryFromList}
                 onDeleteEntry={handleDeleteEntryFromList}
@@ -374,14 +449,16 @@ const App: React.FC = () => {
         {viewMode === 'editor' && (
             <>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-col gap-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <button 
-                            onClick={() => setViewMode('list')}
-                            className="p-1 -ml-1 text-slate-400 hover:text-slate-700 transition-colors"
-                        >
-                            <ArrowLeft size={24} />
-                        </button>
-                        <h2 className="text-lg font-bold text-slate-800">체크 일지작성</h2>
+                    <div className="flex items-center gap-2 mb-2 justify-between">
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => setViewMode('list')}
+                                className="p-1 -ml-1 text-slate-400 hover:text-slate-700 transition-colors"
+                            >
+                                <ArrowLeft size={24} />
+                            </button>
+                            <h2 className="text-lg font-bold text-slate-800">체크 일지작성</h2>
+                        </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -412,6 +489,30 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Privacy Mode Toggle (Only visible if Admin or creating new entry) */}
+                    {(!isMetadataLocked || isAdmin) && (
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                {privacyMode === 'public' ? <Eye size={18} className="text-blue-500"/> : <EyeOff size={18} className="text-slate-500"/>}
+                                <span className="text-sm font-semibold text-slate-700">조회 권한 설정</span>
+                            </div>
+                            <div className="flex p-1 bg-white border border-slate-200 rounded-lg">
+                                <button
+                                    onClick={() => handlePrivacyChange('public')}
+                                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${privacyMode === 'public' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                                >
+                                    모두 보기 (기본)
+                                </button>
+                                <button
+                                    onClick={() => handlePrivacyChange('private')}
+                                    className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${privacyMode === 'private' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                                >
+                                    본인만 보기
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
                         <span className="text-slate-500 text-sm font-medium">전체 진행률</span>
                         <div className="flex items-center gap-3">
@@ -433,13 +534,15 @@ const App: React.FC = () => {
                             <div className="mx-auto w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
                                 <Users className="text-slate-400" size={24} />
                             </div>
-                            <p className="text-slate-600 font-medium">등록된 팀원이 없습니다.</p>
-                            <button 
-                                onClick={() => setViewMode('members')}
-                                className="mt-2 text-blue-600 text-sm hover:underline"
-                            >
-                                팀원 관리에서 추가하기
-                            </button>
+                            <p className="text-slate-600 font-medium">등록된 SM이 없습니다.</p>
+                            {isAdmin && (
+                                <button 
+                                    onClick={() => setViewMode('members')}
+                                    className="mt-2 text-blue-600 text-sm hover:underline"
+                                >
+                                    SM 관리에서 추가하기
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -447,15 +550,18 @@ const App: React.FC = () => {
                 <div className="h-24"></div>
 
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md border border-slate-200 shadow-xl rounded-full px-4 py-2 flex items-center gap-2 z-40 animate-in slide-in-from-bottom-8 duration-500 w-max max-w-[90%] overflow-x-auto hide-scrollbar">
-                    <button
-                        onClick={handleReset}
-                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all flex-shrink-0"
-                        title="초기화"
-                    >
-                        <RotateCcw size={18} />
-                    </button>
-                    
-                    <div className="w-px h-6 bg-slate-300 mx-2 flex-shrink-0"></div>
+                    {isAdmin && (
+                        <>
+                        <button
+                            onClick={handleReset}
+                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all flex-shrink-0"
+                            title="초기화"
+                        >
+                            <RotateCcw size={18} />
+                        </button>
+                        <div className="w-px h-6 bg-slate-300 mx-2 flex-shrink-0"></div>
+                        </>
+                    )}
 
                     <button
                         onClick={handleGenerateReport}
@@ -490,12 +596,6 @@ const App: React.FC = () => {
         onClose={() => setAiModalOpen(false)}
         loading={aiLoading}
         content={aiContent}
-      />
-      
-      <AdminLoginModal
-        isOpen={showAdminLogin}
-        onClose={() => setShowAdminLogin(false)}
-        onSuccess={handleAdminLoginSuccess}
       />
     </div>
   );

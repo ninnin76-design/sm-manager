@@ -19,7 +19,7 @@ export const generateDailyReport = async (
   }).join('\n');
 
   const prompt = `
-    다음은 ${date}의 팀 업무 현황 리스트입니다.
+    다음은 ${date}의 SM 업무 현황 리스트입니다.
     이 데이터를 바탕으로 간단하고 명확한 일일 브리핑 보고서를 작성해주세요.
     
     데이터:
