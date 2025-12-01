@@ -287,7 +287,8 @@ const App: React.FC = () => {
 
         // Apply privacy filter:
         if (!isAdmin && privacyMode === 'private') {
-             groupMembers = groupMembers.filter(m => typeof currentUser !== 'string' && m.id === currentUser.id);
+             // TS18047 fix: use optional chaining for currentUser?.id
+             groupMembers = groupMembers.filter(m => typeof currentUser !== 'string' && m.id === currentUser?.id);
         }
 
         // If no members in this group to show, skip rendering the group
