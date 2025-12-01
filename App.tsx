@@ -149,7 +149,7 @@ const App: React.FC = () => {
     setIsSaved(false);
   };
 
-  // New: Handle Privacy Mode Change (Restored)
+  // New: Handle Privacy Mode Change
   const handlePrivacyChange = (mode: 'public' | 'private') => {
       setPrivacyMode(mode);
       setIsSaved(false); // Mark as unsaved so the save button becomes active
@@ -343,6 +343,10 @@ const App: React.FC = () => {
                 // Fix: Added ?.id to ensure safety
                 const isMyRow = user !== 'admin' && user?.id === member.id;
                 const isDisabled = !isAdmin && !isMyRow;
+                
+                // New: Determine if Zone Number should be hidden
+                // Hide if NOT admin AND NOT my row
+                const shouldHideZoneNumber = !isAdmin && !isMyRow;
 
                 return (
                     <PersonRow
@@ -351,6 +355,7 @@ const App: React.FC = () => {
                         record={records[member.id] || { ...INITIAL_RECORD }}
                         onChange={handleRecordChange}
                         disabled={isDisabled}
+                        hideZoneNumber={shouldHideZoneNumber}
                     />
                 );
               })}
