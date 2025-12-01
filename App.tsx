@@ -300,8 +300,9 @@ const App: React.FC = () => {
 
         // Apply privacy filter:
         if (!isAdmin && privacyMode === 'private') {
-             // TS fix: check user validity explicitly
-             groupMembers = groupMembers.filter(m => user && typeof user !== 'string' && m.id === user.id);
+             // TS fix: check user validity explicitly with optional chaining
+             // Fix: Added ?.id to ensure safety even if user is unexpectedly null
+             groupMembers = groupMembers.filter(m => user && typeof user !== 'string' && m.id === user?.id);
         }
 
         // If no members in this group to show, skip rendering the group
@@ -310,8 +311,9 @@ const App: React.FC = () => {
         // ** Priority Sort: Current User first in their group **
         if (user && typeof user !== 'string' && groupName === user.group) {
             groupMembers.sort((a, b) => {
-                if (a.id === user.id) return -1;
-                if (b.id === user.id) return 1;
+                // Fix: Added ?.id to ensure safety
+                if (a.id === user?.id) return -1;
+                if (b.id === user?.id) return 1;
                 return 0; // Maintain original order for others
             });
         }
@@ -337,7 +339,8 @@ const App: React.FC = () => {
             </div>
             <div className="p-4 space-y-3">
               {groupMembers.map(member => {
-                // Check against 'user' (local const) instead of 'currentUser'
+                // Check against 'user' (local const) instead of 'currentUser' with optional chaining
+                // Fix: Added ?.id to ensure safety
                 const isMyRow = user !== 'admin' && user?.id === member.id;
                 const isDisabled = !isAdmin && !isMyRow;
 
