@@ -274,13 +274,16 @@ const App: React.FC = () => {
   };
 
   const renderGroups = () => {
+    // Local capture of currentUser to satisfy TS strict null checks in callbacks
+    const user = currentUser;
+
     const groups: string[] = Array.from(new Set(members.map(m => m.group)));
     
     groups.sort((a, b) => {
         // Priority 1: Current User's Group (if logged in as a specific person)
-        if (currentUser && typeof currentUser !== 'string') {
-            if (a === currentUser.group) return -1;
-            if (b === currentUser.group) return 1;
+        if (user && typeof user !== 'string') {
+            if (a === user.group) return -1;
+            if (b === user.group) return 1;
         }
 
         // Priority 2: Default Ordering
@@ -297,18 +300,18 @@ const App: React.FC = () => {
 
         // Apply privacy filter:
         if (!isAdmin && privacyMode === 'private') {
-             // TS18047 fix: use optional chaining for currentUser?.id
-             groupMembers = groupMembers.filter(m => typeof currentUser !== 'string' && m.id === currentUser?.id);
+             // TS fix: check user validity explicitly
+             groupMembers = groupMembers.filter(m => user && typeof user !== 'string' && m.id === user.id);
         }
 
         // If no members in this group to show, skip rendering the group
         if (groupMembers.length === 0) return null;
 
         // ** Priority Sort: Current User first in their group **
-        if (currentUser && typeof currentUser !== 'string' && groupName === currentUser.group) {
+        if (user && typeof user !== 'string' && groupName === user.group) {
             groupMembers.sort((a, b) => {
-                if (a.id === currentUser.id) return -1;
-                if (b.id === currentUser.id) return 1;
+                if (a.id === user.id) return -1;
+                if (b.id === user.id) return 1;
                 return 0; // Maintain original order for others
             });
         }
@@ -334,7 +337,8 @@ const App: React.FC = () => {
             </div>
             <div className="p-4 space-y-3">
               {groupMembers.map(member => {
-                const isMyRow = currentUser !== 'admin' && currentUser?.id === member.id;
+                // Check against 'user' (local const) instead of 'currentUser'
+                const isMyRow = user !== 'admin' && user?.id === member.id;
                 const isDisabled = !isAdmin && !isMyRow;
 
                 return (
