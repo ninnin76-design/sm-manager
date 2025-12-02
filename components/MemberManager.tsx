@@ -101,7 +101,9 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
 
   const handleSave = () => {
     onUpdateMembers(localMembers);
-    onBack();
+    setHasChanges(false); // Reset changes flag
+    alert('변경사항이 저장되었습니다.'); // Provide feedback instead of navigating back
+    // onBack(); // Removed navigation to stay on the page
   };
 
   const handleReset = () => {
@@ -338,8 +340,8 @@ export const MemberManager: React.FC<MemberManagerProps> = ({ members: initialMe
                 className="flex items-center justify-between px-5 py-4 bg-red-50 border border-red-100 hover:bg-red-100 text-red-700 rounded-xl transition-colors text-left"
             >
                 <div>
-                    <div className="font-bold text-sm">모든 업무 기록 삭제</div>
-                    <div className="text-xs text-red-500/80 mt-1">SM 목록은 유지되고 일지 기록만 삭제됩니다.</div>
+                    <div className="font-bold text-sm">모든 업무 사항 기록 삭제</div>
+                    <div className="text-xs text-red-500/80 mt-1">SM 목록은 유지되고 사항 기록만 삭제됩니다.</div>
                 </div>
                 <Trash2 size={20} />
             </button>
