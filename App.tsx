@@ -411,14 +411,24 @@ const App: React.FC = () => {
             
             <div className="flex items-center gap-3">
                 {viewMode === 'list' && (
-                    <button
-                        type="button"
-                        onClick={() => loadSummaries()}
-                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
-                        title="새로고침"
-                    >
-                        <RefreshCw size={20} />
-                    </button>
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => loadSummaries()}
+                            className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
+                            title="새로고침"
+                        >
+                            <RefreshCw size={20} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                            title="로그아웃"
+                        >
+                            <LogOut size={20} />
+                        </button>
+                    </>
                 )}
 
                 {viewMode === 'editor' && (
@@ -431,15 +441,6 @@ const App: React.FC = () => {
                         <span className="hidden sm:inline font-medium">목록으로</span>
                      </button>
                 )}
-
-                <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                    title="로그아웃"
-                >
-                    <LogOut size={20} />
-                </button>
             </div>
         </div>
       </header>
